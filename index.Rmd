@@ -1,0 +1,109 @@
+---
+title: "Laboratorio 04: R - Datos raster 1"
+author: "Jefferson Salas Arias. B97068"
+date: "17 de junio de 2020"
+output:
+  html_document:
+    theme: darkly
+---
+## Carga de paquetes y datos a utilizar
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+```{r}
+library(raster)
+library(rgdal)
+library(sf)
+library(dplyr)
+library(leaflet)
+
+altitude <- getData("worldclim", var="alt", res=.5, lon=-84, lat=10)
+cr_altitude <- crop(altitude, extent(-86, -82.3, 8, 11.3))  
+
+precipitation <- getData("worldclim", var="bio", res=.5, lon=-84, lat=10)
+cr_precipitation <- crop(precipitation, extent(-86, -82.3, 8, 11.3))
+```
+
+
+```{r}
+cr_ara_ambiguus <-
+  st_read("https://raw.githubusercontent.com/geoprocesamiento-2020i/datos/master/biodiversidad/registros-presencia/cr/cr-ara-ambiguus.geojson")
+```
+
+
+```{r}
+cr_pharomachrus_mocinno <-
+  st_read("https://raw.githubusercontent.com/geoprocesamiento-2020i/datos/master/biodiversidad/registros-presencia/cr/cr_pharomachrus_mocinno.geojson") 
+
+```
+
+## Paletas de colores
+
+```{r}
+
+pal1 <- colorNumeric(c("#95ff2b", "#ffc619", "#de6909"), 
+  values(cr_altitude), 
+  na.color = "transparent")
+
+pal2 <- colorNumeric(c("#bbf7fa","#6090d6","#640d9e"),
+  values(cr_precipitation),
+  na.color = "transparent") 
+```
+
+## Mapa
+
+```{r}
+
+m <- leaflet() %>% 
+  addProviderTiles(providers$Esri.WorldImagery, group = "Imágenes de ESRI") %>% 
+  addProviderTiles(providers$Stamen.TonerLite, group = "Stamen Toner Lite") %>%
+  addProviderTiles(providers$OpenStreetMap.Mapnik, group = "OpenStreetMap") %>%
+  addCircleMarkers(data = cr_ara_ambiguus,
+                   stroke = F,
+                   radius = 4,
+                   fillColor = 'green',
+                   fillOpacity = 1,
+                   group = "Ara ambiguus",
+                   popup = paste(cr_ara_ambiguus$locality, 
+                                 cr_ara_ambiguus$year, 
+                                 sep = '<br/>')) %>%
+  addCircleMarkers(data = cr_pharomachrus_mocinno,
+                   stroke = F,
+                   radius = 4,
+                   fillColor = 'red',
+                   fillOpacity = 1,
+                   group = "Pharomachrus mocinno",
+                   popup = paste(cr_pharomachrus_mocinno$locality, 
+                                 cr_pharomachrus_mocinno$year,
+                                 sep = "<br/>")) %>%
+  addRasterImage(cr_altitude, 
+                 colors = pal1, 
+                 opacity = 0.8, 
+                 group = "Altitud") %>%
+  
+  addRasterImage(cr_precipitation$bio12_23,
+                 colors = pal2,
+                 opacity = 0.8,
+                 group = "Precipitación")%>%
+  addLayersControl(
+    baseGroups = c("OpenStreetMap", "Stamen Toner Lite", "Imágenes de ESRI"),
+    overlayGroups = c("Altitud", "Ara ambiguus", "Pharomachrus mocinno", "Precipitación"),
+    options = layersControlOptions(collapsed = FALSE)) %>%
+  
+  addLegend(pal = pal1, 
+            values = values(cr_altitude),
+            position = "topleft", 
+            title = "Altitud (m)") %>%
+  addLegend(pal = pal2,
+            values = values(cr_precipitation),
+            position = "topleft",
+            title = "Precipitación (mm)")%>%
+  addMiniMap(
+    toggleDisplay = TRUE,
+    position = "bottomright",
+    tiles = providers$Stamen.TonerLite)
+m
+```
+
+
